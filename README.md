@@ -19,6 +19,7 @@ npm install coc-nuxt-iview
 After installing from npm, create `coc.js` file in `/plugins` directory.
 in `coc.js` add the following
 
+```
 import COC from 'coc-nuxt-iview'
 import moment from 'moment'
 import lodash from 'lodash'
@@ -40,6 +41,7 @@ mode: env.mode
 })
 inject('coc', COC)
 }
+```
 
 Then you can add the default COC theme by adding
 `coc-nuxt-iview/dist/index.css` in your `nuxt.config.js` under the `css` attribute.
