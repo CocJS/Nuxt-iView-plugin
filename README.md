@@ -26,20 +26,20 @@ import lodash from 'lodash'
 import pkg from '~/package'
 import Vue from 'vue'
 export default ({ env }, inject) => {
-// Init COC
-COC.Init({
-Vue,
-lodash,
-moment
-})
-// Config app data
-COC.ConfigApp({
-name: pkg.name,
-version: pkg.version,
-repository: pkg.repository,
-mode: env.mode
-})
-inject('coc', COC)
+  // Init COC
+  COC.Init({
+    Vue,
+    lodash,
+    moment
+  })
+  // Config app data
+  COC.ConfigApp({
+    name: pkg.name,
+    version: pkg.version,
+    repository: pkg.repository,
+    mode: env.mode
+  })
+  inject('coc', COC)
 }
 ```
 
