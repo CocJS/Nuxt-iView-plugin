@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "webpack --config webpack.config.js",
     "build": "node_modules/.bin/webpack",
-    "watch": "npm run build -- --watch"
+    "watch": "npm run build -- --watch",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "repository": {
     "type": "git",
@@ -17,7 +19,8 @@
     "@nuxtjs/axios": "^5.3.3",
     "lodash": "^4.17.11",
     "moment": "^2.22.2",
-    "moment-timezone": "^0.5.21"
+    "moment-timezone": "^0.5.21",
+    "snyk": "^1.180.0"
   },
   "keywords": [
     "coc",
@@ -53,5 +56,6 @@
     "vue-template-compiler": "^2.5.17",
     "webpack": "^4.17.1",
     "webpack-cli": "^3.1.0"
-  }
+  },
+  "snyk": true
 }
