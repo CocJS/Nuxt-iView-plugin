@@ -1,10 +1,23 @@
 <template>
   <div v-if = "dev">
-    <pre>
-    	<code>
-    		foo
-    	</code>
-    </pre>
+    <coc-collapse title = "Validator">
+      <pre
+        slot = "content"
+        class = "coc-background-text coc-standard-border-radius coc-primary-bg">
+      <code class="">
+        {{ $_.omit(validator, ['Rules', 'DefaultMessages', 'ErrorMessages', 'DefaultErrorIcon', 'Logger']) }}
+      </code>
+      </pre>
+    </coc-collapse>
+    <coc-collapse title = "FormController">
+      <pre
+        slot = "content"
+        class = "coc-background-text coc-standard-border-radius coc-primary-bg">
+      <code class="">
+        {{ $_.pick(eventController, ['component']) }}
+      </code>
+      </pre>
+    </coc-collapse>
   </div>
 </template>
 
@@ -12,6 +25,10 @@
 export default {
   name: 'CocFormAtom',
   props: {
+    filters: {
+      type: [String, Function, Array],
+      default: null
+    },
     scope: {
       type: Array,
       default: null
@@ -41,6 +58,10 @@ export default {
     disableOnMount: {
       type: Boolean,
       default: false
+    },
+    disablePlaceholderErrors: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -61,9 +82,19 @@ export default {
     }
   },
   watch: {
+    scope: {
+      deep: true,
+      immediate: false,
+      handler(val) {
+        this.eventController.SetScope(val)
+      }
+    },
     val: {
       deep: true,
       handler(val) {
+        if (this.filters) {
+          this.$emit('filter', this.applyFilters(this.filters))
+        }
         if (!this.validate) {
           return
         }
@@ -76,6 +107,7 @@ export default {
       immediate: true,
       handler(val) {
         if (val && typeof val === 'object') this.validator.SetOptions(val)
+        else this.validator.SetOptions({})
       }
     }
   },
@@ -90,8 +122,48 @@ export default {
     if (!this.disableOnMount) {
       this.validateValue()
     }
+    if (!this.disablePlaceholderErrors) {
+      const defaultErrors = this.$_.cloneDeep(
+        this.$coc.App.Defaults.Validator.ErrorMessages
+      )
+      this.validator.SetDefaultErrorMessages(
+        this.$_.mapValues(defaultErrors, i => ({
+          ...i,
+          message: i.message.replace(
+            /[a-zA-z]* [a-zA-Z]* /,
+            `${this.cocEventController.component.placeholder} `
+          )
+        }))
+      )
+    }
+  },
+  beforeDestroy() {
+    this.$root.$off([
+      'COCFormController',
+      'COCFormMeta',
+      'COCFormAskForRegister'
+    ])
   },
   methods: {
+    applyFilters(filters = this.filters) {
+      if (filters) {
+        let result = this.val
+        if (typeof filters === 'object' && Array.isArray(filters)) {
+          let i
+          for (i = 0; i < filters.length; i += 1) {
+            result = this.applyFilters(filters[i])
+          }
+        } else if (typeof filters === 'string') {
+          if (this.$coc.Filters[filters]) {
+            result = this.$coc.Filters[filters](this.val)
+          }
+        } else if (typeof filters === 'function') {
+          result = filters(this.val)
+        }
+        return result
+      }
+      return this.val
+    },
     generateModel(model) {
       const { control } = model
       control.validate = this.validateValue

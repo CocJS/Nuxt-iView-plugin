@@ -7,24 +7,37 @@ export default class FormControl extends Event {
     this.type = event.type
     this.model = event.model
     if (!event.scope || !Array.isArray(event.scope)) {
-      this.scope = []
+      this.SetScope([])
     } else {
-      this.scope = event.scope
+      this.SetScope(event.scope)
     }
     this.scopeArray = new Arrays(this.scope, {
       logger: 'Coc Arrays: CEFC Scope'
     })
-    this.component = event.component ? event.component : null
+    this.component = event.component || null
     this.registered = {}
-    this.pennding = true
+    this.isReciever = event.isReciever || false
+    this.pennding = false
     this.Logger = new Logger(`COC ${this.type} | CEFC`)
+  }
+
+  SetScope(scope) {
+    if (!scope) {
+      this.scope = []
+      return
+    }
+    this.scope = scope
   }
 
   SetPennding(state = true) {
     this.pennding = state
   }
   Start() {
+    if (!this.isReciever) {
+      this.Register()
+    }
     this.On('COCFormController', payloads => {
+      console.log('recieving...')
       // Validate if there's a scope
       if (!this.scope) {
         this.Warn(
@@ -70,17 +83,32 @@ export default class FormControl extends Event {
                 : 'Unknown'
             }`
           )
-          console.log(this)
         }
       } else return
     })
   }
 
-  Send(options) {
+  Send(options, eventName = 'COCFormController') {
     const defaults = {
       scope: this.scope
     }
-    this.Emit('COCFormController', { ...defaults, ...options })
+    this.Emit(eventName, { ...defaults, ...options })
+  }
+
+  Register() {
+    this.ReceiveScope('COCFormAskForRegister', () => {
+      this.Send(
+        {
+          id: this.component.domId,
+          valid: undefined
+        },
+        'COCFormItemRegister'
+      )
+    })
+  }
+
+  RegisterChild(child) {
+    this.registered = child
   }
 
   SendMeta(options) {
@@ -101,6 +129,14 @@ export default class FormControl extends Event {
           callback(payloads)
         } else return
       else return
+    })
+  }
+
+  ReceiveScope(event, callback) {
+    this.On(event, payloads => {
+      if (this.MatchedEvent(payloads)) {
+        callback(payloads)
+      }
     })
   }
 

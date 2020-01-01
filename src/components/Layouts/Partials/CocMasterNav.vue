@@ -1,6 +1,8 @@
 <template>
   <coc-nav :classes = "classes">
-    <div slot = "title">
+    <slot 
+      slot = "title" 
+      name = "nav-title">
       <nuxt-link
         to="/"
         class="text-super text-code coc-primary-text coc-nav-brand col coc-padding-0"
@@ -15,8 +17,10 @@
           class="name col coc-padding-x-15px coc-padding-y-0 coc-margin-0"
         >{{ $coc.App.brandName }}</span>
       </nuxt-link>
-    </div>
-    <div slot = "middle">
+    </slot>
+    <slot 
+      slot = "middle" 
+      name = "nav-middle">
       <coc-input
         v-model="cocPureInput"
         :status-classes = "{
@@ -27,43 +31,34 @@
         class = "coc-padding-y-18px"
         icon = "ivu-icon ivu-icon-ios-search"
       />
-    </div>
-    <div slot = "actions">
-      <div class="row house-keeper right">
-        <Dropdown>
+    </slot>
+    <slot 
+      slot = "actions" 
+      name = "nav-actions">
+      <div 
+        v-if = "actions" 
+        class="row house-keeper right">
+        <Dropdown 
+          v-for = "(action, a) in actions" 
+          :key = "a"
+          @on-click = "excuteCallback(action, $event)">
           <Button
             type="text"
             size = "large"
             style = "height: 70px; border-radius: 0">
-            One
+            {{ action.label }}
             <Icon type="ios-arrow-down"/>
           </Button>
           <DropdownMenu slot="list">
-            <DropdownItem>Lorem</DropdownItem>
-            <DropdownItem>Ipsum</DropdownItem>
-            <DropdownItem disabled>Dolar</DropdownItem>
-            <DropdownItem>Imet</DropdownItem>
-            <DropdownItem divided>Foo</DropdownItem>
-          </DropdownMenu>
-        </Dropdown>
-        <Dropdown>
-          <Button
-            type="text"
-            size = "large"
-            style = "height: 70px; border-radius: 0">
-            Two
-            <Icon type="ios-arrow-down"/>
-          </Button>
-          <DropdownMenu slot="list">
-            <DropdownItem>Lorem</DropdownItem>
-            <DropdownItem>Ipsum</DropdownItem>
-            <DropdownItem disabled>Dolar</DropdownItem>
-            <DropdownItem>Imet</DropdownItem>
-            <DropdownItem divided>Foo</DropdownItem>
+            <DropdownItem 
+              v-for = "(item, i) in action.items"
+              :name = "item.label"
+              :key = "i">{{ item.label }}
+            </dropdownitem>
           </DropdownMenu>
         </Dropdown>
       </div>
-    </div>
+    </slot>
   </coc-nav>
 </template>
 
@@ -71,6 +66,10 @@
 export default {
   name: 'CocMasterNav',
   props: {
+    actions: {
+      type: Array,
+      default: null
+    },
     classes: {
       type: Object,
       default: () => {
@@ -87,6 +86,20 @@ export default {
   data() {
     return {
       cocPureInput: null
+    }
+  },
+  methods: {
+    excuteCallback(action, e) {
+      if (action.items) {
+        const item = action.items.filter(i => i.label === e)
+        if (
+          item.length &&
+          item[0].callback &&
+          typeof item[0].callback === 'function'
+        ) {
+          item[0].callback()
+        }
+      }
     }
   }
 }

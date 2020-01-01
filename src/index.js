@@ -40,23 +40,23 @@ import CocLayoutDocker from './components/Layouts/Partials/Docker.vue'
 import CocMasterNav from './components/Layouts/Partials/CocMasterNav.vue'
 import CocNav from './components/Layouts/Partials/CocNav.vue'
 import CocLayoutMasterSplitted from './components/Layouts/Masters/Initials/CocLayoutMasterSplitted.vue'
-import CocPureInput from './components/CocPureForms/CocPureInput.vue'
-import CocPureSelect from './components/CocPureForms/CocPureSelect.vue'
+// import CocPureInput from './components/CocPureForms/CocPureInput.vue'
+// import CocPureSelect from './components/CocPureForms/CocPureSelect.vue'
 import CocOption from './components/CocPureForms/Partials/CocOption.vue'
 import CocTag from './components/CocPureForms/Partials/CocTag.vue'
 import CocAvatar from './components/View/CocAvatar.vue'
 
 // SASS FILES
-import './assets/sass/index.scss'
+// import './assets/sass/index.scss'
 
 // Injecting Into Coc Core
 
+COC.$ = $
 COC.Arrays = Arrays
 COC.Queue = Queue
 COC.Logger = Logger
 COC.CircularQueue = CircularQueue
 COC.Objects = Objects
-COC.$ = $
 COC.Event = Event
 COC.FormController = FormController
 COC.Validator = Validator

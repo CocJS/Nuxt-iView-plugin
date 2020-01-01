@@ -1,20 +1,21 @@
 <template>
   <div>
     <coc-watch-my-window v-model = "windowWatcher"/>
-    <coc-master-nav>
+    <coc-master-nav :actions = "actions">
       <slot
-        slot = "left"
-        name = "nav-left"/>
+        slot = "nav-title"
+        name = "nav-title"/>
       <slot
-        slot = "middle"
+        slot = "nav-middle"
         name = "nav-middle"/>
       <slot
-        slot = "right"
-        name = "nav-right"/>
+        slot = "nav-actions"
+        name = "nav-actions"/>
     </coc-master-nav>
     <main>
-      <slot/>
-      <coc-layout-docker 
+      <slot name = "default"/>
+      <coc-layout-docker
+        v-if = "!hideDocker" 
         :window-watcher = "windowWatcher" 
         v-bind = "docker"/>
     </main>
@@ -37,6 +38,14 @@ export default {
     docker: {
       type: Object,
       default: null
+    },
+    actions: {
+      type: Array,
+      default: null
+    },
+    hideDocker: {
+      type: Boolean,
+      default: false
     }
   },
   data() {

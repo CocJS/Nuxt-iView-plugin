@@ -46,3 +46,9 @@
   50%  { transform: rotate(180deg);}
   to   { transform: rotate(360deg);}
 }
+.ivu-page-item-active a, .ivu-page-item a{
+  font-family: sans-serif;
+}
+html {
+  scroll-behavior: smooth;
+}

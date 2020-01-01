@@ -28,3 +28,9 @@
 .coc-flex {
 	display: flex;
 }
+.coc-animation-infinite-duration {
+	animation-duration: infinite !important;
+}
+.coc-deanimate {
+	animation: none !important;
+}

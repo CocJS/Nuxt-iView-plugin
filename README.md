@@ -4,6 +4,7 @@
 
 
 
+
 # COC.JS Nuxt-iView
 <p align="center">
 <img width="200" height="200" src="https://avatars2.githubusercontent.com/u/44804821?s=400&u=c2252c15889114f4fa1128f60b3156e9f1f2131e&v=4">
@@ -30,24 +31,36 @@ npm install coc-nuxt-iview
 After installing from npm, create `coc.js` file in `/plugins` directory.
 in `coc.js` add the following
 ```
-import coc from 'coc-nuxt-iview'
+import COC from 'coc-nuxt-iview'
 import moment from 'moment'
+import 'moment-timezone'
 import lodash from 'lodash'
-import Vue from 'vue'
 import pkg from '~/package'
-
-export default ({ env }, inject) => {
-  // Init coc
-  coc.Init({ Vue, lodash, moment })
+import Vue from 'vue'
+export default ({ app: { router, $axios }, env }, inject) => {
+  // Init COC
+  COC.Init({
+    Vue,
+    lodash,
+    moment,
+    axios: $axios
+  })
   // Config app data
   COC.Config.Meta({
     name: pkg.name,
+    brandName: 'Techno Service',
     version: pkg.version,
     repository: pkg.repository,
-    mode: env.mode
+    author: pkg.author,
+    mode: env.mode,
+    logo: {
+      primary: '/logo.jpg',
+      invert: '/invert.jpg'
+    }
   })
-  inject('coc', coc)
+  inject('coc', COC)
 }
+
 ```
 Afer adding cocjs file in your plugins, add the file in your plugins in ``nuxt.config.js``
 Then you can add the default COC theme by adding
@@ -62,7 +75,7 @@ The plugin is using iView as a UI framework, so mainly we are implementing Ant-D
 - [MaterializeCss - Colors](https://materializecss.com/color.html)
 - [MaterializeCss - Shadow](https://materializecss.com/shadow.html)
 - [AnimateCss](https://daneden.github.io/animate.css/)
-- [Bulma - Buttons](https://bulma.io/documentation/elements/button/)
+
 
 **Resources By COC**
 - Typography Styles
@@ -84,7 +97,6 @@ The plugin is using iView as a UI framework, so mainly we are implementing Ant-D
 - Coc-Form Item
 - Coc-Form
 - Coc-Watch My Window
-- Coc-Pure Input
 - Coc-Option
 - Coc-Select
 - Coc-Input
@@ -209,105 +221,205 @@ So here's how to recieve it, now but this code in your console, and then ask for
 the payloads will also carry the meant scope as you can handle when to react on those components using them.
 
 ## Validator
+
 Coc Validator is a validation class that was made to validate user input with a ready made validators that will cover most of common cases, you can also add a custom rules and custom error delivery messages.
-### Example
 
+
+### Rules
 ```
-const vm = $nuxt
+[
+   "HasValue",                  //Arguments: none
+   "SameAs",                    //Arguments: none
+   "IsString",                  //Arguments: none
+   "IsEmail",                   //Arguments: none
+   "IsNumeric",                 //Arguments: none
+   "IsNumericString",           //Arguments: none
+   "IsDateString",              //Arguments: none
+   "IsArray",                   //Arguments: none
+   "IsObject",                  //Arguments: none
+   "IsEvenNumber",              //Arguments: none
+   "IsOddNumber",               //Arguments: none
+   "NumberGreaterThan",         //Arguments: Number min
+   "NumberLessThan",            //Arguments: Number max
+   "NumberBetween",             //Arguments: Object { min: Number, Max: Number }
+   "MaxDate",                   //Arguments: MomentInstance min
+   "MinDate",                   //Arguments: MomentInstance max
+   "DateBetween",               //Arguments: Object { MomentInstance min, MomentInstance Max }
+   "MatchesRegex",              //Arguments: Regex regex
+   "MinLength",                 //Arguments: Number min
+   "MaxLength",                 //Arguments: Number max
+   "LengthBetween",             //Arguments: Object { min: Number, Max: Number }
+   "MinArrayLength",            //Arguments: Number min
+   "MaxArrayLength",            //Arguments: Number max
+   "Each",                      //Arguments: Rules will be applied on each element in the array
+   "Keys",                      //Arguments: Object includes the desired keys to be validated, each of them has set of rules
+   "Remote",                    //Arguments: Object args than includes:
+                                  //Object options (axios args eg: { url: '/foo', method: 'get'})
+                                  //Function callback to be excuted on resolvation, consider res as a parameter
+                                  //AxiosInstance agent --optional
+                                  // Function catch to be excuted on fail --optional
+   "PreConditions",           //Arguments: Array validators
+                                  //Each of them should return true , or error messagee or false
+]
+```
 
-  // New instance from Validator class
-  const instance = new vm.$coc.Validator('2012-01-01')
-
-  // Custom Validator functions
-
- // if it returns bool it will fallback to the validator error message
-  const funOne = val => val === '2012-01-01'
-  
-  // if a function returns a string this will be the error message
-  const funTwo = val => typeof val === 'string' || 'must be a string'
-
-  // Custom Validators Group
-  const PreConditionsArgs = [funOne, funTwo]
-
-  // Rule validator as an option
-  const PreConditions = { args: PreConditionsArgs }
-
-  // Invalid Validator
-  // Coc Validator must warn you about this in your console if in dev mode
-  const InvalidOne = { foo: 'bar' }
-
-  // Date Vlidations
-
-  // Is Date data type or valid date string
-  const IsDateString = { active: true }
-
-  // Min date
-  const MinDate = { args: vm.$moment('2011-01-01') }
-
-  // Max Length
-  const MaxLength = { args: 5 }
-
-  // Promise Validation
-  const GetPromise = async () => {
-    return new Promise((resolve, reject) => {
-      vm.$axios
-        .get('https://jsonplaceholder.typicode.com/posts')
-        .then(res => {
-          if (!res.data[0]) {
-            resolve(true)
-          } else {
-            reject(false)
-          }
-        })
-        .catch(() => {
-          reject(false)
-        })
-    })
-  }
-
-  // Promise as an option
-  const ResolvedPromise = {
+### Rules, Args and Options
+```
+// Standard
+const standardOptions = {
+  HasValue: {
+    args: true,
     active: true,
-    args: GetPromise
+    message: 'This field is required',
+    icon: 'fa fa-error',
   }
+}
 
-  // Options Creation
-  const options = {
-    PreConditions,
-    InvalidOne,
-    IsDateString,
-    MinDate,
-    ResolvedPromise,
-    MaxLength
-  }
- // Set Custom Error Messages
- 
-  // |*args*| will be replaced by the args you passed
-  instance.SetErrorMessage('MaxLength', 'you cant exceed |*args*|')
- 
-  // Passing args from object
-  instance.SetErrorMessage('LengthBetween', 'from |*args.min*|')
-  
-  // Passing validators
-  instance.SetOptions(options)
+// Only the needed attributes
+const onlyIfNeeded = {
+  HasValue: { icon: 'fa fa-error'},
+  MaxLength: {
+      args: 3,
+      message: 'Whoops!, length cant pass |*args*|'
+    }
+}
 
-  // Validate
-  instance.Run().then(data => {
-    console.log('Success', data)
-  }).catch(err => {
-    console.log('Failed with ', err)
-  })
+// Quick
+const quickOptions = { HasValue: true, MaxLength: 3 }
+
+```
+### Examples
+
 ```
 
-## Components
+const person = { name: 'Jhon Doe', age: 24, sports: [ 'basket', 'ping-pong' ] }
 
-Code Sample
+const rules = {
+   HasValue: true,
+   IsObject: true,
+   Keys: {
+     name: { HasValue : true },
+     age: { IsNumeric: true, NumberLessThan: 20 }
+   }
+}
+
+const v = new this.$coc.Validator( person, rules )
+const result = await v.Run()
+```
+The expected result is 
+```
+{
+  attemp:  0
+  attemps:  0
+  code:  12
+  error:  "NumberLessThan"
+  icon:  "ivu-icon ivu-icon-ios-alert-outline"
+  instance:  "coc-validator"
+  message:  "This number must be less than 20"
+  path:  (2) ["root",  "age"]
+  val:  24
+  valid:  false
+ }
+```
+
+####  The same demo with custom error messages
+
+```
+import Validator from 'coc-validator'
+
+const person = { name: 'Jhon Doe', age: 24, sports: [ 'basket', 'ping-pong' ] }
+
+const rules = {
+   HasValue: true,
+   IsObject: true,
+   Keys: {
+     name: { HasValue : true },
+     age: { 
+            IsNumeric: true,
+            NumberLessThan: {
+              args: 20,
+              message: 'Age cant be greater than 20'
+            }
+       }
+   }
+}
+
+const v = new this.$coc.Validator( person, rules )
+const result = await v.Run()
+
+```
+
+Or you can event set a dynamic error message by passing the message like this
+```
+{args: 20, message: 'Age cant be greater than |*args*|'}
+```
+in this way, Coc will replace ``|*args*|`` by the value in your args.
+
+**Another case** is when our args is an object, such as NumberBetween rule, it expects args to be ```{ max: 20, min: 10 }``` for example, in this case dynamic error message will be something like this.
+
+```
+{ 
+  args: { max: 20, min: 10 },
+  message: 'Age cant be greater than |*args.max*| and less than |*args.min*|'
+}
+```
+**Another case** also is validating using user custom validators, which could happen in ``PreConditions`` Validator for example.
+The args right there is an array of functions, so what if i want a special message for each of them.
+moreover, what if i want each of them to append an error message to some fixed prefix.
+
+The answer is, simply let the validators returns true or error message
+
+#### eg
+```
+const custom = val => val > 20 : 'can not be less than 20'
+
+const rules = {
+  Keys: {
+    age: {
+      PreConditions: {
+        args: [ custom ],
+        message: 'age |*args*|'
+      }
+    }
+  }
+}
+
+```
+so if custom returns the string "can not be less th.." then coc will replace ``|*args*|`` with this and the result will be
+`age can not be less than 20`
+
+## Form Components
+The concept behind Coc Form Components is simply making complex stuff quickly and easily, validation is being done by **Coc Validator**, contacting api is being done by **Coc Button** component, here's a little sample of a form using Coc Form Components.
 ```
 <coc-input
-  placeholder = "Please enter.."
-  :size = "large"
-  :rules = "{
-     HasValue: { message: 'this field cant be empty.' },
-     MaxLength: { args: 6 }
-  }"/>
+  v-model = "xdata.email"
+  :rules = "{ HasValue: true, IsEmail: true }"
+  :scope = "['my-form']"
+  placeholder = "Email.."
+  light-model
+  labeled />
+<coc-select
+  v-model = "xdata.gender"
+  :rules = "{ HasValue: true }"
+  :scope = "['my-form']"
+  :data = "['male', 'female']"
+  placeholder = "Gender.."
+  light-model
+  labeled />
+<coc-button
+  :scope = "['my-form']"
+  :request = "{url: '/api/register', method: 'post', xdata}"
+  placeholder = "Submit"
+  @coc-submit-accepted = "myCallback" />
 ```
+
+This simple code can do the following:
+
+- Validate user Input.
+- Show reactive error messages for invalid fields.
+- Notify when the user submit with missing fields.
+- Contact the API with user data.
+- Notify if the request did not success.
+- Notify if the request succeeded.
+- Reset Input fields on success.
+- Execute a callback function on both success and error. 

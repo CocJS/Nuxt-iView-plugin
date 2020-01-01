@@ -1,5 +1,21 @@
 <template>
-  <div>
+  <Button
+    :type = "type"
+    :ghost = "plain"
+    :shape = "circle ? 'circle': null"
+    :round = "round"
+    :loading = "isLoading"
+    :class = "classes"
+    :icon = "icon"
+    :size = "size"
+    :long = "long"
+    v-bind = "bind"
+    :disabled = "disabled"
+    @click = "construct()">
+    <slot
+      name = "default">
+      <template v-if = "placeholder && placeholder.length">{{ placeholder }}</template>
+    </slot>
     <coc-axios
       v-if = "!local"
       v-bind = "request"
@@ -8,25 +24,7 @@
       prevent-on-mount
       @success = "handleSubmit($event)"
       @catch = "handleCatch($event)"/>
-    <Button
-      :type = "type"
-      :ghost = "plain"
-      :shape = "circle ? 'circle': null"
-      :round = "round"
-      :loading = "isLoading"
-      :class = "classes"
-      :icon = "icon"
-      :size = "size"
-      :long = "long"
-      v-bind = "bind"
-      :disabled = "disabled"
-      @click = "construct()">
-      <slot
-        name = "default">
-        <template v-if = "placeholder && placeholder.length">{{ placeholder }}</template>
-      </slot>
-    </Button>
-  </div>
+  </Button>
 </template>
 <script>
 export default {
@@ -123,7 +121,10 @@ export default {
       type: Function,
       default: err => {
         return {
-          body: err.response.data,
+          body:
+            err.response && err.response.data
+              ? err.response.data
+              : 'Request Faild.',
           title: 'Whoops!'
         }
       }
@@ -145,12 +146,51 @@ export default {
       default: null
     },
     validationMessage: {
-      type: Object,
-      default: () => {
-        return {
-          body: 'There`re some fields you need to complete.',
+      type: [Object, Function],
+      default() {
+        return instance => ({
+          render: h =>
+            instance.errorStack && instance.errorStack.length
+              ? h('div', [
+                  h(
+                    'b',
+                    {
+                      class: 'coc-error-text'
+                    },
+                    `${instance.errorStack.length} errors was found`
+                  ),
+                  h('br'),
+
+                  h('br'),
+                  h(
+                    'coc-collapse',
+                    {
+                      props: {
+                        contentSlot: 'default',
+                        title: 'Errors',
+                        togglerClass: 'transparent coc-border-0',
+                        regularClass: 'coc-error-text coc-text-heading left',
+                        icon: 'ivu-icon'
+                      }
+                    },
+                    [
+                      h(
+                        'div',
+                        instance.errorStack.map(error => [
+                          h('b', `${error.component.placeholder}: `),
+                          error.description.message,
+                          h('br'),
+                          h('br')
+                        ])
+                      )
+                    ]
+                  )
+                ])
+              : h('span', [
+                  'There are some fields you need to complete first.'
+                ]),
           title: 'Whoops!'
-        }
+        })
       }
     },
     beforeSubmit: {
@@ -173,21 +213,29 @@ export default {
     reset: {
       type: Boolean,
       default: false
+    },
+    validationTolerenceTime: {
+      type: Number,
+      default: 750
     }
   },
   data() {
     return {
+      exists: true,
       retriever: { loading: false },
+      onSubmit: false,
       errorStack: [],
       waitingLocalResponse: false,
-      networkErrors: null
+      networkErrors: null,
+      checkedFormMembers: null
     }
   },
   computed: {
     eventController() {
       return new this.$coc.FormController({
-        api: $nuxt,
+        api: this.$root,
         type: 'button',
+        isReciever: true,
         scope: this.scope,
         model: this.model,
         component: {
@@ -211,7 +259,8 @@ export default {
       return {
         control: {
           click: this.construct,
-          submit: this.submit
+          submit: this.submit,
+          register: this.register
         },
         meta: {
           hasErrors: this.hasErrors,
@@ -220,23 +269,65 @@ export default {
           networkErrors: this.networkErrors,
           response: this.retriever.response,
           progress: this.retriever.progress,
-          xdata: this.xdata
+          xdata: this.xdata,
+          retriever: this.retriever
         }
       }
     }
   },
+  watch: {
+    model: {
+      deep: true,
+      handler() {
+        this.emit()
+      }
+    }
+  },
   mounted() {
+    // console.log('btn mnt')
+    this.exists = true
     this.emit()
     const vm = this
     this.eventController.Start()
     this.eventController.ReceiveMeta('valid', payloads => {
+      if (!vm.exists) return
       if (payloads.credentials === false || payloads.pennding) {
         vm.errorStack.push(payloads)
       }
+      vm.checkedFormMembers[payloads.component.domId] = true
+      const unreceivedItems = vm.$_.pickBy(
+        vm.checkedFormMembers,
+        (val, key) => !val
+      )
+      if (!Object.keys(unreceivedItems).length) {
+        vm.waitingLocalResponse = false
+        if (vm.hasErrors) {
+          if (typeof vm.validationMessage === 'function') {
+            vm.notifi(vm.validationMessage(vm))
+          } else {
+            vm.notifi(vm.validationMessage)
+          }
+          vm.emit('coc-validation-refused')
+          vm.onSubmit = false
+          return
+        } else {
+          vm.emit('coc-validation-passed')
+          vm.submit()
+        }
+      }
     })
+    this.eventController.ReceiveScope('COCFormItemRegister', this.register)
+  },
+  beforeDestroy() {
+    // console.log('btn des')
+    this.exists = false
+    this.$root.$off(['COCFormController', 'COCFormItemRegister', 'COCFormMeta'])
+    this.checkedFormMembers = null
   },
   methods: {
     construct() {
+      if (this.onSubmit) return
+      this.onSubmit = true
       if (this.beforeSubmit) {
         this.waitingLocalResponse = true
         this.beforeSubmit()
@@ -256,28 +347,22 @@ export default {
       //Check the precondition
       if (this.precondition !== null && this.precondition == false) {
         this.notifi(this.preconditionMessage)
-        this.emit('coc-validation-refused')
+        this.emit('coc-validation-refused', this.errorStack)
+        this.onSubmit = false
         return
       }
       this.errorStack = []
+      this.checkedFormMembers = {}
       if (!this.ignore) {
         this.waitingLocalResponse = true
-        this.eventController.Send({
-          controller: 'validate',
-          credentials: 'meta'
-        })
+        this.eventController.Send(null, 'COCFormAskForRegister')
+        setTimeout(() => {
+          this.eventController.Send({
+            controller: 'validate',
+            credentials: 'meta'
+          })
+        }, this.validationTolerenceTime)
       }
-      setTimeout(() => {
-        this.waitingLocalResponse = false
-        if (this.hasErrors) {
-          this.notifi(this.validationMessage)
-          this.emit('coc-validation-refused')
-          return
-        } else {
-          this.emit('coc-validation-passed')
-          this.submit()
-        }
-      }, 500)
       //Check and Call the aruguments callback
       if (typeof arguments[arguments.length - 1] == 'function') {
         arguments[arguments.length - 1]()
@@ -286,6 +371,18 @@ export default {
     submit() {
       if (!this.local) {
         this.retriever.retrieve()
+        this.onSubmit = false
+      } else {
+        if (!this.hasErrors) {
+          this.onSubmit = false
+          if (this.reset) {
+            this.eventController.Send({
+              scope: this.scope,
+              controller: 'reset',
+              credentials: null
+            })
+          }
+        }
       }
       //Check and Call the aruguments callback
       if (typeof arguments[arguments.length - 1] == 'function') {
@@ -300,6 +397,7 @@ export default {
       if (type === 'success') {
         this.$Notice.success({
           title: message.title === undefined ? 'Whoops!' : message.title,
+          render: message.render,
           desc:
             message.body === undefined
               ? 'There`re some messing fields.'
@@ -308,6 +406,7 @@ export default {
       } else {
         this.$Notice.error({
           title: message.title === undefined ? 'Whoops!' : message.title,
+          render: message.render,
           desc:
             message.body === undefined
               ? 'There`re some messing fields.'
@@ -334,6 +433,7 @@ export default {
       }
     },
     handleSubmit(e) {
+      this.onSubmit = false
       this.networkErrors = null
       if (!this.resolveResponse || this.resolveResponse(e.response)) {
         if (this.local) {
@@ -358,6 +458,7 @@ export default {
       }
     },
     handleCatch(e) {
+      this.onSubmit = false
       if (this.resolveErrorMessage) {
         this.notifi(
           this.resolveMessage(this.resolveErrorMessage(e.errors), 'error')
@@ -367,6 +468,10 @@ export default {
     emit() {
       this.$emit('input', this.model)
       if (arguments.length > 0) this.$emit(arguments[0], this.model)
+    },
+    register(e) {
+      if (!this.checkedFormMembers) this.checkedFormMembers = {}
+      this.checkedFormMembers[e.id] = false
     }
   }
 }

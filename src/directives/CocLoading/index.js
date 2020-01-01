@@ -1,3 +1,4 @@
+import Core from '../../modules/Core/index.js'
 const removeLoader = parent => {
   const selections = parent.getElementsByClassName('coc-loader')
   if (selections && selections.length) {
@@ -73,14 +74,7 @@ const initLoader = (el, binding) => {
         typeof binding.modifiers === 'object' &&
         Object.keys(binding.modifiers).length
           ? Object.keys(binding.modifiers)
-          : [
-              'ivu-icon',
-              'ivu-icon-ios-loading',
-              'coc-spin',
-              'text-lg',
-              'center',
-              'coc-primary-text'
-            ],
+          : Core.App.Defaults.Get('Loader.spinner'),
       color: el.getAttribute('coc-loader-bg')
         ? el.getAttribute('coc-loader-bg')
         : 'rgba(255,255,255,0.8)',
@@ -90,10 +84,10 @@ const initLoader = (el, binding) => {
           el.getAttribute('coc-loader-hastext') !== 'false',
         text: el.getAttribute('coc-loader-text')
           ? el.getAttribute('coc-loader-text')
-          : 'Loading..',
+          : Core.App.Defaults.Get('Loader.placeholder'),
         classes: el.getAttribute('coc-loader-classes')
           ? el.getAttribute('coc-loader-classes')
-          : 'coc-primary-text text-lg block'
+          : Core.App.Defaults.Get('Loader.placeholderClass')
       }
     })
   } else {

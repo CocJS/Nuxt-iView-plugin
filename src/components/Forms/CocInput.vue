@@ -1,12 +1,17 @@
+
 <template>
   <div :class = "[computedStatusClasses.initHolder]">
     <coc-form-atom
       ref = "atom"
+      v-bind = "atom"
       :coc-event-controller = "eventController"
       :validate = "computedRules"
       :val = "inputFieldModel"
       :scope = "scope"
+      :filters = "filters"
+      :disable-placeholder-errors = "disablePlaceholderErrors"
       @validation = "handleValidation"
+      @filter = "handleAtomFilter"
       @coc-atom-control = "atomControllers = $event"/>
     <coc-axios
       v-if = "autocompleteComputedOptions"
@@ -14,7 +19,21 @@
       v-model = "autocompleteRetriever"
       @success = "handleAutocompleteSuccess"
       @catch = "handleAutocompleteError"/>
-    <Input
+    <label
+      v-if = "labeled"
+      :class = "labelClasses">{{ placeholder }}
+      <slot
+        v-if = "!hideErrors && !isValid.valid && isValid.message && isFired && rules && Object.keys(rules).length && labeled"
+        :error = "isValid"
+        name = "error">
+        <span
+          class = "animated fadeIn coc-text-sm right">
+          <span :class = "[isValid.icon]"/>
+          {{ isValid.message }}
+        </span>
+      </slot>
+    </label>
+    <i-input
       v-if = "!allowAutocomplete"
       ref = "input"
       v-model = "inputFieldModel"
@@ -31,7 +50,7 @@
       :number = "number"
       :autofocus = "autofocus"
       :clearable = "clearable"
-      :element-id = "elementId"
+      :element-id = "componentId"
       :wrap = "wrap"
       :prefix = "prefix"
       :suffix = "suffix"
@@ -42,19 +61,19 @@
       @on-change = "handleInput"
       @on-clear = "handleClear"
       @on-enter = "handleEnter">
-    <slot 
-      slot = "prepend" 
-      name = "prepend"/>
-    <slot 
-      slot = "suffix" 
-      name = "suffix"/>
-    <slot 
-      slot = "append" 
-      name = "append"/>
-    <slot 
-      slot = "prefix" 
-      name = "prefix"/>
-    </Input> <!-- eslint-disable-line -->
+      <slot 
+        slot = "prepend" 
+        name = "prepend"/>
+      <slot 
+        slot = "suffix" 
+        name = "suffix"/>
+      <slot 
+        slot = "append" 
+        name = "append"/>
+      <slot 
+        slot = "prefix" 
+        name = "prefix"/>
+    </i-input>
     <AutoComplete
       v-if = "allowAutocomplete"
       ref = "input"
@@ -72,7 +91,7 @@
       :number = "number"
       :autofocus = "autofocus"
       :clearable = "clearable"
-      :element-id = "elementId"
+      :element-id = "componentId"
       :wrap = "wrap"
       :prefix = "prefix"
       :suffix = "suffix"
@@ -86,9 +105,13 @@
       @on-focus = "handleFocus"
       @on-blur = "handleBlur"
       @input = "handleInput"
-      @on-clear = "handleClear">
+      @on-change = "handleInput"
+      @on-clear = "handleClear"
+      @on-select = "handleSelect">
       <slot
         slot = "default"
+        :options = "autocompleteMapResponse"
+        :response = "autocompleteRetriever.response"
         name = "default"/>
       <slot 
         slot = "prepend" 
@@ -105,12 +128,12 @@
     </AutoComplete>
 
     <slot
+      v-if = "!hideErrors && !isValid.valid && isValid.message && isFired && rules && Object.keys(rules).length && !labeled"
       :error = "isValid"
       name = "error">
       <p
-        v-if = "!isValid.valid && isValid.message && isFired"
-        class = "coc-error-text animated fadeIn">
-        <span :class = "isValid.icon"/>
+        class = "coc-error-text animated fadeIn coc-absolute coc-text-sm">
+        <span :class = "[isValid.icon]"/>
         {{ isValid.message }}
       </p>
     </slot>
@@ -118,12 +141,36 @@
 </template>
 
 <script>
+import optionsFormatter from '../../modules/Options'
 const oneOf = (val, array) => {
   return array.indexOf(val) !== -1
 }
 export default {
   name: 'CocInput',
   props: {
+    labeled: {
+      type: Boolean,
+      default: false
+    },
+    labelStatusClasses: {
+      type: Object,
+      default() {
+        return {
+          mount: 'coc-content-text',
+          focus: 'coc-primary-text',
+          success: 'coc-success-shade-3-text',
+          error: 'coc-error-shade-3-text'
+        }
+      }
+    },
+    trim: {
+      type: Boolean,
+      default: false
+    },
+    atom: {
+      type: Object,
+      default: null
+    },
     type: {
       validator(value) {
         return oneOf(value, [
@@ -249,7 +296,11 @@ export default {
     filterMethod: {
       type: [Function, Boolean],
       default: (value, option) => {
-        return option.toUpperCase().indexOf(value.toUpperCase()) !== -1
+        const formattedOption = new optionsFormatter(option).Resolve()
+        return (
+          formattedOption.label.toUpperCase().indexOf(value.toUpperCase()) !==
+          -1
+        )
       }
     },
     placement: {
@@ -272,6 +323,10 @@ export default {
     rules: {
       type: [Object, Function],
       default: null
+    },
+    disablePlaceholderErrors: {
+      type: Boolean,
+      default: false
     },
     statusClasses: {
       type: Object,
@@ -299,6 +354,32 @@ export default {
     autocompleteFetchOnce: {
       type: Boolean,
       default: false
+    },
+    autocompletePreventDebounce: {
+      type: Boolean,
+      default: false
+    },
+    autocompleteDebouncedTime: {
+      type: Number,
+      default: 500
+    },
+    autocompleteDebouncedOptions: {
+      type: Object,
+      default() {
+        return { maxWait: 1000 }
+      }
+    },
+    filters: {
+      type: [String, Function, Array],
+      default: null
+    },
+    hideStatus: {
+      type: Boolean,
+      default: false
+    },
+    hideErrors: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -313,19 +394,20 @@ export default {
       isFocused: false,
       atomControllers: {},
       autoCompleteRemoteFeeds: [],
-      autocompleteRetriever: { loading: false },
-      onReset: false
+      autocompleteRetriever: { loading: false, response: null },
+      onReset: false,
+      watchingEnterOnAutocomplete: false
     }
   },
   computed: {
     eventController() {
       return {
-        type: 'select',
+        type: 'input',
         model: this.model,
         component: {
           placeholder: this.placeholder,
-          domId: this._uid,
-          type: 'select',
+          domId: this.componentId,
+          type: this.type,
           val: this.inputFieldModel
         }
       }
@@ -349,8 +431,21 @@ export default {
           valid: this.isValid.valid,
           validationData: this.isValid,
           isFired: this.isFired,
-          isFocused: this.isFocused
+          isFocused: this.isFocused,
+          id: this.componentId,
+          filtered: null
         }
+      }
+    },
+    autocompleteInvoker() {
+      if (this.autocompletePreventDebounce) {
+        return this.autocompleteRetriever.retrieve
+      } else {
+        return this.$_.debounce(
+          this.autocompleteRetriever.retrieve,
+          this.autocompleteDebouncedTime,
+          this.autocompleteDebouncedOptions
+        )
       }
     },
     autocompleteComputedOptions() {
@@ -386,7 +481,8 @@ export default {
     },
     computedStatusClasses() {
       const defaults = {
-        initHolder: 'row coc-margin-0 coc-padding-y-10px coc-padding-x-3px',
+        initHolder:
+          'row coc-margin-0 coc-padding-y-3px coc-padding-x-0 coc-smooth-height',
         initContainer: 'coc-standard-border-radius',
         initInput: 'coc-standard-border-radius',
         initLoadingIcon: 'ivu-icon ivu-icon-ios-loading coc-spin',
@@ -399,6 +495,20 @@ export default {
         focus: 'coc-primary-section-outline'
       }
       return { ...defaults, ...this.statusClasses }
+    },
+    labelClasses() {
+      if (!this.labeled) return null
+      let status = 'mount'
+      if (!this.isFired && !this.isFocused) {
+        status = 'mount'
+      } else if (!this.isFired && this.isFocused) {
+        status = 'focus'
+      } else if (this.isValid.valid) {
+        status = 'success'
+      } else if (!this.isValid.valid && this.rules) {
+        status = 'error'
+      }
+      return this.labelStatusClasses[status]
     },
     inputRef() {
       if (!this.allowAutocomplete) {
@@ -418,6 +528,9 @@ export default {
       if (typeof this.rules === 'function') {
         return this.rules(this.model)
       }
+    },
+    componentId() {
+      return this.elementId || `coc-input-${this._uid}`
     }
   },
   watch: {
@@ -430,6 +543,9 @@ export default {
     },
     inputFieldModel() {
       this.isFired = true
+      if (this.trim) {
+        this.inputFieldModel = this.inputFieldModel.trim()
+      }
       if (this.rules) {
         this.loaders.validation = true
       }
@@ -440,11 +556,21 @@ export default {
       handler(val) {
         this.$emit('input', this.lightModel ? val.val : val)
       }
+    },
+    allowAutocomplete(val) {
+      if (val && !this.watchingEnterOnAutocomplete) {
+        this.handleEnterOnAutocomplete()
+      }
+    },
+    hideStatus() {
+      this.handleStyles()
     }
   },
   mounted() {
     // On Mount Code
+    const vm = this
     this.handleStyles()
+    if (this.allowAutocomplete) this.handleEnterOnAutocomplete()
   },
   methods: {
     // Generators
@@ -516,11 +642,17 @@ export default {
         this.autocompleteRemote &&
         !this.autocompleteFetchOnce
       ) {
-        this.autocompleteRetriever.retrieve()
+        this.autocompleteInvoker()
       }
+    },
+    handleSelect(e) {
+      this.$emit('coc-select', e)
+      this.inputFieldModel = e
     },
     handleClear() {
       this.isFired = true
+      this.inputFieldModel = ''
+      this.$emit('coc-clear')
       // some code
     },
     // After Events Methods
@@ -584,11 +716,32 @@ export default {
           if (i !== status) {
             container.RemoveClass(this.computedStatusClasses[i])
             input.RemoveClass(this.computedStatusClasses[i])
+          } else {
+            if (this.hideStatus) {
+              container.RemoveClass(this.computedStatusClasses[status])
+              input.RemoveClass(this.computedStatusClasses[status])
+            }
           }
         }
       })
-      container.AddClass(this.computedStatusClasses[status])
-      input.AddClass(this.computedStatusClasses[status])
+      if (!this.hideStatus) {
+        container.AddClass(this.computedStatusClasses[status])
+        input.AddClass(this.computedStatusClasses[status])
+      }
+    },
+    handleEnterOnAutocomplete() {
+      const vm = this
+      vm.watchingEnterOnAutocomplete = true
+      const el = new this.$coc.$(`#${this.componentId}`)
+      el.OnKeyUp(e => {
+        if (e.keyCode === 13) {
+          vm.$emit('coc-enter')
+        }
+      })
+    },
+    handleAtomFilter(e) {
+      this.$emit('filter', e)
+      this.model.meta.filtered = e
     }
   }
 }

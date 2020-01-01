@@ -4,9 +4,16 @@ import Core from '../Core'
 import moment from 'moment'
 import axios from 'axios'
 // COC VALIDATORS
-export default class {
-  constructor(val = 0, options = null, errorMessages = null) {
+export default class Validator {
+  constructor(
+    val = 0,
+    options = null,
+    errorMessages = null,
+    parent = null,
+    label = 'root'
+  ) {
     // Init Values
+    this.LastError = null
     this.Val = val
     this.Options = {}
     this.Attemps = 0
@@ -27,19 +34,24 @@ export default class {
       'IsEvenNumber',
       'IsOddNumber',
       'NumberGreaterThan',
+      'NumberGreaterThanOrEqual',
       'NumberLessThan',
+      'NumberLessThanOrEqual',
       'NumberBetween',
       // Date Validations
       'MaxDate',
       'MinDate',
       'DateBetween',
       // Logical Validations
-      'MatchsRegex',
+      'MatchesRegex',
       'MinLength',
       'MaxLength',
       'LengthBetween',
       'MinArrayLength',
       'MaxArrayLength',
+      // Complex Forms
+      'Each',
+      'Keys',
       // Custom Validations
       'Remote',
       'PreConditions',
@@ -58,10 +70,25 @@ export default class {
     if (options) {
       this.SetOptions(options)
     }
+
+    this.parent = parent
+    this.label = label
+    this.Path = this.parent || ['root']
+
+    if (this.label) {
+      this.Path.push(label)
+    }
   }
 
   // Setters and Getters
 
+  get ValueRequired() {
+    return (
+      this.Rules.HasValue &&
+      (this.Rules.HasValue.active === undefined ||
+        this.Rules.HasValue.active === false)
+    )
+  }
   get GetVal() {
     return this.Val
   }
@@ -79,6 +106,10 @@ export default class {
 
   SetDefaultErrorIcon(val = 'ivu-icon') {
     this.DefaultErrorIcon = val
+  }
+
+  SetDefaultErrorMessages(messages) {
+    this.ErrorMessages = messages
   }
 
   SetErrorMessage(rule = 'HasValue', messageOrOption = 'message', icon = null) {
@@ -124,7 +155,7 @@ export default class {
   ) {
     this.AddOption(
       rule,
-      options.args,
+      this.resolveArgs(options),
       options.active,
       options.variable,
       options.message
@@ -165,7 +196,6 @@ export default class {
       this.SetErrorMessage(rule, message)
     }
   }
-
   SwitchOption(rule = 'HasValue', status = true) {
     if (this.Rules.indexOf(rule) === -1) {
       this.Logger.Warn(`Invalid Rule (${rule})`)
@@ -181,18 +211,29 @@ export default class {
 
   DeliverError(reject, error, round = false, attemp) {
     this.Attemps += 1
-    return reject({
+    this.LastError = {
       error,
       valid: false,
       message: this.GenerateErrorMessage(error, round).message,
       icon: this.GenerateErrorMessage(error).icon,
       code: this.Rules.indexOf(error),
       attemp,
-      attemps: this.Attemps - 1
-    })
+      attemps: this.Attemps - 1,
+      path: this.Path,
+      val: this.Val,
+      instance: 'coc-validator'
+    }
+    return reject(this.LastError)
   }
 
   GenerateErrorMessage(key, round) {
+    if (
+      typeof round === Object &&
+      round.valid === false &&
+      round.message &&
+      round.instance === 'coc-validator'
+    )
+      return round
     if (this.Rules.indexOf(key) === -1) {
       this.Logger.Warn(`Invalid Rule (${key})`)
       return
@@ -273,6 +314,12 @@ export default class {
     if (typeof this.Val === 'string' && !this.Val.length) {
       return false
     }
+    if (
+      typeof this.Val === 'string' &&
+      !this.Val.split(' ').filter(m => m.length).length
+    ) {
+      return false
+    }
     return true
   }
 
@@ -299,60 +346,83 @@ export default class {
 
   // Data Types
   IsString() {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return typeof this.Val === 'string'
   }
 
   IsNumeric() {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return typeof this.Val === 'number'
   }
 
   IsArray() {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return typeof this.Val === 'object' && Array.isArray(this.Val)
   }
 
   IsEmail() {
-    if (!this.HasValue || !this.IsString) {
-      return false
-    }
+    if (!this.ValueRequired && !this.HasValue()) return true
     let re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
     return re.test(String(this.Val).toLowerCase())
   }
   IsObject() {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return !this.IsArray(this.Val) && typeof this.Val === 'object'
   }
 
   IsNumericString() {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return parseFloat(this.Val, 10) == this.Val
   }
 
   IsDateString() {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return moment(this.Val).format() !== 'Invalid date'
   }
 
   // Numeric Validations
 
   IsEvenNumber() {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return this.Val % 2 === 0
   }
 
   IsOddNumber() {
-    return this.Val % 2 !== 0
+    if (!this.ValueRequired && !this.HasValue()) return true
+    return parseFloat(this.Val, 10) % 2 !== 0
   }
 
   NumberGreaterThan(max = 10) {
-    return this.Val > max
+    if (!this.ValueRequired && !this.HasValue()) return true
+    return parseFloat(this.Val, 10) > parseFloat(max, 10)
+  }
+
+  NumberGreaterThanOrEqual(max = 10) {
+    if (!this.ValueRequired && !this.HasValue()) return true
+    return parseFloat(this.Val, 10) >= parseFloat(max, 10)
   }
 
   NumberLessThan(min = 0, val) {
-    return this.Val < min
+    if (!this.ValueRequired && !this.HasValue()) return true
+    return parseFloat(this.Val, 10) < parseFloat(min, 10)
+  }
+
+  NumberLessThanOrEqual(min = 0, val) {
+    if (!this.ValueRequired && !this.HasValue()) return true
+    return parseFloat(this.Val, 10) <= parseFloat(min, 10)
   }
 
   NumberBetween(limits = { min: 2, max: 10 }) {
-    return this.Val >= limits.min && this.Val <= limits.max
+    if (!this.ValueRequired && !this.HasValue()) return true
+    return (
+      parseFloat(this.Val, 10) >= parseFloat(limits.min, 10) &&
+      parseFloat(this.Val, 10) <= parseFloat(limits.max, 10)
+    )
   }
 
   // Date Validations
   MaxDate(momentMinDate = moment('2012-01-01')) {
+    if (!this.ValueRequired && !this.HasValue()) return true
     if (!momentMinDate instanceof moment) {
       this.Logger.Warn(
         'MaxDate, You must pass a MomentJS instance as an argument'
@@ -362,6 +432,7 @@ export default class {
     return moment(this.Val).diff(momentMinDate) < 0
   }
   MinDate(momentMaxDate = moment('2019-01-01')) {
+    if (!this.ValueRequired && !this.HasValue()) return true
     if (!momentMaxDate instanceof moment) {
       this.Logger.Warn(
         'MinDate, You must pass a MomentJS instance as an argument'
@@ -375,6 +446,7 @@ export default class {
     momentMinDate = moment('2012-01-01'),
     momentMaxDate = moment('2019-01-01')
   ) {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return (
       this.MinDate(momentMaxDate, this.Val) &&
       this.MaxDate(momentMinDate, this.Val)
@@ -383,6 +455,7 @@ export default class {
 
   // In Max Range << Number >>
   MaxLength(max = 10) {
+    if (!this.ValueRequired && !this.HasValue()) return true
     if (!this.Val) {
       return false
     }
@@ -391,6 +464,7 @@ export default class {
 
   // In Min Range << Number >>
   MinLength(min = 5) {
+    if (!this.ValueRequired && !this.HasValue()) return true
     if (!this.Val) {
       return false
     }
@@ -398,32 +472,73 @@ export default class {
   }
 
   LengthBetween(limits = { min: 2, max: 10 }) {
-    if (!this.Val) {
-      return false
-    }
+    if (!this.ValueRequired && !this.HasValue()) return true
     return this.Val.length >= limits.min && this.Val.length <= limits.max
   }
 
   // Identical << Number >>
   SameAs(compatator = 'foo') {
+    if (!this.ValueRequired && !this.HasValue()) return true
     return this.Val === compatator
   }
 
   // Matching << Number >>
-  MatchsRegex(regex = /foo/) {
-    return this.Val.match(regex) != null
+  MatchesRegex(regex = /foo/) {
+    if (!this.ValueRequired && !this.HasValue()) return true
+    const match = this.Val.match(regex)
+    return match && match[0] === match.input
   }
 
   // Array Length Min
   MinArrayLength(min = 2) {
+    if (!this.ValueRequired && !this.HasValue()) return true
     if (!this.IsArray()) return false
     return this.Val.length > min
   }
 
   // Array Length Max
   MaxArrayLength(max = 10) {
+    if (!this.ValueRequired && !this.HasValue()) return true
     if (!this.IsArray()) return false
     return this.Val.length < max
+  }
+
+  async Each(rules) {
+    let i
+    let current
+    for (i = 0; i < this.Val.length; i += 1) {
+      current = await new Validator(
+        this.Val[i],
+        rules,
+        null,
+        this.parent,
+        i.toString()
+      ).Run()
+      if (!current.valid) {
+        return current
+      }
+    }
+    return true
+  }
+
+  async Keys(rules) {
+    let i
+    let current
+    let ex
+    let keys = Object.keys(rules)
+    for (i = 0; i < keys.length; i += 1) {
+      current = await new Validator(
+        this.Val[keys[i]],
+        rules[keys[i]],
+        null,
+        this.parent,
+        keys[i].toString()
+      ).Run()
+      if (!current.valid) {
+        return current
+      }
+    }
+    return true
   }
 
   // Remote
@@ -464,6 +579,16 @@ export default class {
       }
     }
     return true
+  }
+  resolveArgs(option) {
+    if (
+      typeof option === 'object' &&
+      !Array.isArray(option) &&
+      (option.args !== undefined ||
+        (option.active !== undefined || option.message !== undefined))
+    ) {
+      return option.args
+    } else return option
   }
   Run() {
     return new Promise(async (resolve, reject) => {

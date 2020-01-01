@@ -26,7 +26,7 @@
       <slot 
         v-if = "isFired" 
         :val = "model.val" 
-        name = "content"/>
+        :name = "contentSlot"/>
     </div>
   </div>
 </template>
@@ -35,6 +35,10 @@
 export default {
   name: 'Collapse',
   props: {
+    contentSlot: {
+      type: String,
+      default: 'content'
+    },
     containerClass: {
       type: [Array, Object, String],
       default: 'row house-keeper'

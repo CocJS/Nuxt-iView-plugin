@@ -110,7 +110,7 @@ export default {
     // });
   },
   methods: {
-    retrieve() {
+    async retrieve() {
       // this.CancelToken = this.$axios.CancelToken
       // this.requestSource = this.CancelToken.source()
       if (this.precondition != null && this.precondition == false) return

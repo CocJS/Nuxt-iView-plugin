@@ -85,6 +85,10 @@ export default class $ extends Events {
     return this
   }
 
+  UpdateValue(value = this.domer.value) {
+    this.domer.value = value
+  }
+
   Blur() {
     this.handlePrefetch()
     this.domer.blur()

@@ -179,7 +179,12 @@ export default class Arrays {
     this.Swap(arr, right, partitionIndex)
     return partitionIndex
   }
-
+  SwapIndex(i, j) {
+    const temp = this.val[i]
+    this.val[i] = this.val[j]
+    this.val[j] = temp
+    return this
+  }
   Swap(arrs, i, j) {
     const arr = arrs
     const temp = arr[i]

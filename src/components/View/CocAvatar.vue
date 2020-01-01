@@ -3,14 +3,15 @@
     :style = "{ width: scale, height: scale }"
     :class = "parentClass">
     <span
-      v-if = "icon"
+      v-if = "icon || onError"
       :style = "{ width: scale, height: scale, fontSize: scale }"
       :class = "classes"/>
     <img
       v-else
       :src="source"
       :style = "{ width: scale, height: scale }"
-      :class = "classes">
+      :class = "classes"
+      @error = "handleImageError">
   </div>
 </template>
 
@@ -18,6 +19,10 @@
 export default {
   name: 'CocAvatar',
   props: {
+    fallbackIcon: {
+      type: String,
+      default: 'ivu-icon ivu-icon-ios-color-filter'
+    },
     icon: {
       type: String,
       default: null
@@ -48,7 +53,9 @@ export default {
     }
   },
   data() {
-    return {}
+    return {
+      onError: false
+    }
   },
   computed: {
     classes() {
@@ -56,7 +63,15 @@ export default {
       if (this.icon) {
         c.push(this.icon)
       }
+      if (this.onError) {
+        c.push(this.fallbackIcon)
+      }
       return c
+    }
+  },
+  methods: {
+    handleImageError() {
+      this.onError = true
     }
   }
 }

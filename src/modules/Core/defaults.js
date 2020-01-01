@@ -3,6 +3,18 @@ export default {
     Alignment: 'left'
   },
   Docker: {},
+  Loader: {
+    spinner: [
+      'ivu-icon',
+      'ivu-icon-ios-loading',
+      'coc-spin',
+      'text-lg',
+      'center',
+      'coc-primary-text'
+    ],
+    placeholder: 'Loading..',
+    placeholderClass: 'coc-primary-text text-lg block'
+  },
   Validator: {
     ErrorMessages: {
       // Existance
@@ -42,8 +54,14 @@ export default {
       NumberGreaterThan: {
         message: 'This number must be greater than |*args*|'
       },
+      NumberGreaterThanOrEqual: {
+        message: 'This number must be at least |*args*|'
+      },
       NumberLessThan: {
         message: 'This number must be less than |*args*|'
+      },
+      NumberLessThanOrEqual: {
+        message: "This number can't exceed |*args*|"
       },
       NumberBetween: {
         message:
@@ -58,7 +76,7 @@ export default {
       DateBetween: {
         message: 'This date must be in a valid range'
       },
-      MatchsRegex: {
+      MatchesRegex: {
         message: 'This field must follow the correct formula'
       },
       MinLength: {

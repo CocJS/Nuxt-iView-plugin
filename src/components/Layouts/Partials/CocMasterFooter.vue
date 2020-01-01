@@ -32,7 +32,7 @@ export default {
       type: Object,
       default: () => {
         return {
-          nav: 'pink  white-text'
+          nav: 'coc-primary-bg  coc-secondary-text'
         }
       }
     }

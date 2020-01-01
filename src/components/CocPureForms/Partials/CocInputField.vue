@@ -87,7 +87,7 @@
 </template>
 
 <script>
-import CocDropdown from './CocDropdown.vue'
+import CocDropdown from './CocDropdown'
 const defaultFilter = (value, options) => {
   if (!options || !options instanceof Array) {
     return []

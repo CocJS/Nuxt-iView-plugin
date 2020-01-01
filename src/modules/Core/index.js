@@ -80,6 +80,24 @@ COC.IsMatchedArrays = (arrayOne, arrayTwo) => {
   return false
 }
 
+COC.CielChilds = (array, mappingFunction) => {
+  if (!Array.isArray(array)) {
+    console.error('COC > CielChild: array argument must be an array')
+    return []
+  }
+  const mapped =
+    typeof mappingFunction !== 'function' ? array : array.map(mappingFunction)
+  const result = []
+  mapped.forEach(firstLevelElement => {
+    if (Array.isArray(firstLevelElement)) {
+      firstLevelElement.forEach(secondLevelElement => {
+        result.push(secondLevelElement)
+      })
+    } else console.warn('COC > CielChild: array childs must be arrays')
+  })
+  return result
+}
+
 //Finding
 
 COC.GetIndex = (array, val) => {
@@ -293,9 +311,41 @@ COC.Greetings = () => {
     )
   }
 }
+COC.ResolveTree = (tree, val) => {
+  let splits = tree.split('.')
+  let temp = null
+  let i
+  for (i = 0; i < splits.length; i += 1) {
+    if (i === 0) {
+      temp = val[splits[i]]
+    } else if (temp && typeof temp === 'object') {
+      temp = temp[splits[i]]
+    }
+  }
+  return temp
+}
+COC.ResolveTreeAndSet = (tree, val, set) => {
+  let splits = tree.split('.')
+  let temp = null
+  let i
+  for (i = 0; i < splits.length; i += 1) {
+    if (i === 0) {
+      temp = val[splits[i]]
+    } else if (temp && typeof temp === 'object') {
+      temp = temp[splits[i]]
+    }
+  }
+  temp = set
+  return temp
+}
 // App Instance
 COC.App = {
-  Defaults
+  Defaults: {
+    ...Defaults,
+    Get(key) {
+      return COC.ResolveTree(key, COC.App.Defaults)
+    }
+  }
 }
 COC.Config = {
   Meta(options) {
@@ -309,6 +359,10 @@ COC.Config = {
     Object.keys(options).forEach(key => {
       COC.App.Defaults[key] = options[key]
     })
+  },
+  SetKey(key, val) {
+    let toBeEdited = COC.ResolveTreeAndSet(key, COC.App.Defaults)
+    toBeEdited = val
   }
 }
 

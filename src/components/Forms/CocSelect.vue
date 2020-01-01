@@ -6,6 +6,7 @@
       :validate = "computedRules"
       :val = "inputFieldModel"
       :scope = "scope"
+      :disable-placeholder-errors = "disablePlaceholderErrors"
       @validation = "handleValidation"
       @coc-atom-control = "atomControllers = $event"/>
     <coc-axios
@@ -14,6 +15,20 @@
       v-model = "autocompleteRetriever"
       @success = "handleAutocompleteSuccess"
       @catch = "handleAutocompleteError"/>
+    <label
+      v-if = "labeled"
+      :class = "labelClasses">{{ placeholder }}
+      <slot
+        v-if = "!hideErrors && !isValid.valid && isValid.message && isFired && rules && Object.keys(rules).length && labeled"
+        :error = "isValid"
+        name = "error">
+        <span
+          class = "animated fadeIn coc-text-sm right">
+          <span :class = "[isValid.icon]"/>
+          {{ isValid.message }}
+        </span>
+      </slot>
+    </label>
     <Select
       ref = "input"
       v-model = "inputFieldModel"
@@ -34,7 +49,7 @@
       :transfer = "transfer"
       :name = "name"
       :auto-complete = "autoComplete"
-      :element-id = "elementId"
+      :element-id = "componentId"
       @input = "handleInput"
       @on-clear = "handleClear"
       @on-focus = "handleFocus"
@@ -44,21 +59,28 @@
         slot = "default"
         :options = "dropdownOptions"
         name = "default">
-        <coc-iview-option
-          v-for = "(option, index) in dropdownOptions"
-          :key = "index"
-          :init = "option"/>
-        <slot name = "extra-options"/>
+        <template v-if = "cocOptions">
+          <coc-iview-option
+            v-for = "(option, index) in dropdownOptions"
+            :key = "index"
+            :init = "option"/>
+        </template>
+        <template v-else>
+          <Option 
+            v-for = "(option, index) in dropdownOptions"
+            v-bind = "new $coc.OptionsManager(option).Resolve()" 
+            :key = "index"/>
+        </template>
       </slot>
     </Select>
 
     <slot
+      v-if = "!hideErrors && !isValid.valid && isValid.message && isFired && rules && Object.keys(rules).length && !labeled"
       :error = "isValid"
       name = "error">
       <p
-        v-if = "!isValid.valid && isValid.message && isFired"
-        class = "coc-error-text">
-        <span :class = "isValid.icon"/>
+        class = "coc-error-text animated fadeIn coc-absolute coc-text-sm">
+        <span :class = "[isValid.icon]"/>
         {{ isValid.message }}
       </p>
     </slot>
@@ -72,6 +94,21 @@ const oneOf = (val, array) => {
 export default {
   name: 'CocSelect',
   props: {
+    labeled: {
+      type: Boolean,
+      default: false
+    },
+    labelStatusClasses: {
+      type: Object,
+      default() {
+        return {
+          mount: 'coc-content-text',
+          focus: 'coc-primary-text',
+          success: 'coc-success-shade-3-text',
+          error: 'coc-error-shade-3-text'
+        }
+      }
+    },
     value: {
       type: [String, Number, Array, Object],
       default() {
@@ -157,6 +194,10 @@ export default {
           : this.$IVIEW.transfer
       }
     },
+    cocOptions: {
+      type: Boolean,
+      default: false
+    },
     // Use for AutoComplete
     autoComplete: {
       type: Boolean,
@@ -190,6 +231,10 @@ export default {
       type: [Object, Function],
       default: null
     },
+    disablePlaceholderErrors: {
+      type: Boolean,
+      default: false
+    },
     statusClasses: {
       type: Object,
       default() {
@@ -216,10 +261,33 @@ export default {
     autocompleteFetchOnce: {
       type: Boolean,
       default: false
+    },
+    autocompletePreventDebounce: {
+      type: Boolean,
+      default: false
+    },
+    autocompleteDebouncedTime: {
+      type: Number,
+      default: 500
+    },
+    autocompleteDebouncedOptions: {
+      type: Object,
+      default() {
+        return { maxWait: 1000 }
+      }
+    },
+    hideStatus: {
+      type: Boolean,
+      default: false
+    },
+    hideErrors: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
     return {
+      query: '',
       inputFieldModel: '',
       isValid: { valid: false },
       isFired: false,
@@ -241,11 +309,14 @@ export default {
         model: this.model,
         component: {
           placeholder: this.placeholder,
-          domId: this._uid,
+          domId: this.componentId,
           type: 'input',
           val: this.inputFieldModel
         }
       }
+    },
+    componentId() {
+      return this.elementId || `coc-select-${this._uid}`
     },
     model() {
       return {
@@ -265,8 +336,20 @@ export default {
           valid: this.isValid.valid,
           validationData: this.isValid,
           isFired: this.isFired,
-          isFocused: this.isFocused
+          isFocused: this.isFocused,
+          query: this.query
         }
+      }
+    },
+    autocompleteInvoker() {
+      if (this.autocompletePreventDebounce) {
+        return this.autocompleteRetriever.retrieve
+      } else {
+        return this.$_.debounce(
+          this.autocompleteRetriever.retrieve,
+          this.autocompleteDebouncedTime,
+          this.autocompleteDebouncedOptions
+        )
       }
     },
     autocompleteComputedOptions() {
@@ -302,7 +385,7 @@ export default {
     },
     computedStatusClasses() {
       const defaults = {
-        initHolder: 'row',
+        initHolder: 'coc-margin-y-3px',
         initContainer: 'coc-standard-border-radius',
         initInput: 'coc-standard-border-radius',
         initLoadingIcon: 'ivu-icon ivu-icon-ios-loading coc-spin',
@@ -315,6 +398,20 @@ export default {
         focus: 'coc-primary-section-outline'
       }
       return { ...defaults, ...this.statusClasses }
+    },
+    labelClasses() {
+      if (!this.labeled) return null
+      let status = 'mount'
+      if (!this.isFired && !this.isFocused) {
+        status = 'mount'
+      } else if (!this.isFired && this.isFocused) {
+        status = 'focus'
+      } else if (this.isValid.valid) {
+        status = 'success'
+      } else if (!this.isValid.valid && this.rules) {
+        status = 'error'
+      }
+      return this.labelStatusClasses[status]
     },
     inputRef() {
       return () =>
@@ -352,11 +449,15 @@ export default {
       handler(val) {
         this.$emit('input', this.lightModel ? val.val : val)
       }
+    },
+    hideStatus() {
+      this.handleStyles()
     }
   },
   mounted() {
     // On Mount Code
     // console.log(this.$refs)
+    const vm = this
     this.handleStyles()
     setTimeout(() => {
       // body
@@ -379,6 +480,7 @@ export default {
         })
         inputToListen.$on('on-keydown', () => {
           this.handleInput()
+          this.query = inputToListen.query
         })
       }
     }, 1000)
@@ -451,7 +553,7 @@ export default {
         this.autocompleteRemote &&
         !this.autocompleteFetchOnce
       ) {
-        this.autocompleteRetriever.retrieve()
+        this.autocompleteInvoker()
       }
     },
     handleClear() {
@@ -525,11 +627,18 @@ export default {
           if (i !== status) {
             container.RemoveClass(this.computedStatusClasses[i])
             input.RemoveClass(this.computedStatusClasses[i])
+          } else {
+            if (this.hideStatus) {
+              container.RemoveClass(this.computedStatusClasses[status])
+              input.RemoveClass(this.computedStatusClasses[status])
+            }
           }
         }
       })
-      container.AddClass(this.computedStatusClasses[status])
-      input.AddClass(this.computedStatusClasses[status])
+      if (!this.hideStatus) {
+        container.AddClass(this.computedStatusClasses[status])
+        input.AddClass(this.computedStatusClasses[status])
+      }
     }
   }
 }
